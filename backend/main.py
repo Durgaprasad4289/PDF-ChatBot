@@ -8,7 +8,7 @@ from openai import OpenAI
 import pypdf
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
+import requests
 import asyncio
 import json
 from typing import List
@@ -36,7 +36,8 @@ client = OpenAI(
 MODEL = "llama-3.3-70b-versatile"
 
 # Global state
-embedding_model = None
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5"
+HF_TOKEN = os.getenv("HF_TOKEN")
 faiss_index = None
 chunks = None
 chat_history = []
@@ -48,12 +49,23 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
 
-# Load embedding model
+def get_hf_embeddings(texts: List[str]):
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    payload = {"inputs": texts, "options": {"wait_for_model": True}}
+    response = requests.post(HF_API_URL, headers=headers, json=payload)
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail=f"HF API Error: {response.text}")
+    
+    # HF returns a list of embeddings
+    return np.array(response.json())
+
+# Load verification
 @app.on_event("startup")
-async def load_model():
-    global embedding_model
-    embedding_model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
-    print("✅ Embedding model loaded")
+async def verify_hf_token():
+    if not HF_TOKEN:
+        print("⚠️ HF_TOKEN not found in environment")
+    else:
+        print("✅ HF Token detected")
 
 # Extract text from PDF
 def extract_text_from_pdf(file_bytes):
@@ -75,7 +87,7 @@ def chunk_text(text, chunk_size=600, overlap=100):
 
 # Build FAISS index
 def build_faiss_index(text_chunks):
-    embeddings = embedding_model.encode(text_chunks)
+    embeddings = get_hf_embeddings(text_chunks)
     if len(embeddings.shape) == 1:
         embeddings = np.expand_dims(embeddings, axis=0)
     
@@ -86,7 +98,7 @@ def build_faiss_index(text_chunks):
 
 # Retrieve relevant chunks
 def retrieve_chunks(question, text_chunks, index, top_k=3):
-    q_embedding = embedding_model.encode([question])
+    q_embedding = get_hf_embeddings([question])
     distances, indices = index.search(np.array(q_embedding, dtype=np.float32), top_k)
     return [text_chunks[i] for i in indices[0] if i < len(text_chunks)]
 
