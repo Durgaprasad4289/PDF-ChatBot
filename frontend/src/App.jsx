@@ -1,0 +1,258 @@
+import React, { useState, useRef, useEffect } from 'react';
+import PDFUploader from './components/PDFUploader';
+import ChatInterface from './components/ChatInterface';
+import LandingPage from './components/LandingPage';
+import Particles from './components/Particles';
+import Auth from './components/Auth';
+import { supabase } from '../supabaseClient';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import './App.css';
+
+function App() {
+  const [appState, setAppState] = useState('landing');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [session, setSession] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  // Check backend status and session on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    checkStatus();
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const checkStatus = async () => {
+    try {
+      const response = await fetch(`${API_URL}/status`);
+      const data = await response.json();
+      setIsLoaded(data.loaded);
+      if (data.loaded) {
+        setMessages([]); // Reset messages when status is checked
+      }
+    } catch (err) {
+      console.error('Status check failed:', err);
+    }
+  };
+
+  const handleFilesSelected = async (files) => {
+    setLoading(true);
+    setError(null);
+    
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    try {
+      const response = await fetch(`${API_URL}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Upload failed');
+      }
+
+      const data = await response.json();
+      setUploadedFiles(files);
+      setIsLoaded(true);
+      navigate('/chat');
+      setMessages([]);
+      setError(null);
+    } catch (err) {
+      setError(err.message || 'Failed to upload PDFs');
+      setIsLoaded(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (question) => {
+    if (!question.trim() || !isLoaded) return;
+
+    // Add user message to chat
+    const userMessage = { role: 'user', content: question };
+    setMessages(prev => [...prev, userMessage]);
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Chat request failed');
+      }
+
+      const data = await response.json();
+      const assistantMessage = { role: 'assistant', content: data.answer };
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (err) {
+      setError(err.message || 'Failed to get response');
+      // Remove the user message if request failed
+      setMessages(prev => prev.slice(0, -1));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      await fetch(`${API_URL}/reset`, {
+        method: 'POST',
+      });
+      setIsLoaded(false);
+      navigate('/upload');
+      setUploadedFiles([]);
+      setMessages([]);
+      setError(null);
+    } catch (err) {
+      setError('Failed to reset');
+    }
+  };
+
+  return (
+    <div className="app-global-container" style={{ position: 'relative', minHeight: '100vh', width: '100%' }}>
+      <ToastContainer theme="dark" position="top-right" />
+      {/* 3D Global Interactive Background */}
+      <div className="particles-wrapper" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
+        <Particles
+          particleColors={['#ffffff', '#a8b1ff', '#e0e7ff']} 
+          particleCount={250}
+          particleSpread={12}
+          speed={0.15}
+          particleBaseSize={120}
+          moveParticlesOnHover={true}
+          particleHoverFactor={1.5}
+          alphaParticles={false}
+          disableRotation={false}
+          pixelRatio={typeof window !== 'undefined' ? window.devicePixelRatio : 1}
+        />
+      </div>
+
+      {/* Foreground Content Layer */}
+      <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <AnimatePresence mode="wait">
+          {location.pathname === '/' ? (
+            <motion.div 
+              key="landing" 
+              style={{ flex: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <LandingPage session={session} />
+            </motion.div>
+          ) : location.pathname === '/auth' ? (
+            <motion.div 
+              key="auth" 
+              style={{ flex: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Auth />
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="app-main" 
+              className="app" 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <header className="app-header">
+                <h1>
+                  <span style={{ marginRight: '10px' }}>📄</span>
+                  <span className="app-header-gradient">PDF Chatbot</span>
+                </h1>
+                <p>Upload PDFs and ask questions powered by AI</p>
+              </header>
+
+              <main className="app-main">
+                <AnimatePresence mode="wait">
+                  <Routes location={location} key={location.pathname}>
+                    <Route 
+                      path="/upload" 
+                      element={
+                        !session ? <Navigate to="/auth" replace /> :
+                        <motion.div
+                          key="upload"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.4 }}
+                        >
+                          <PDFUploader 
+                            onFilesSelected={handleFilesSelected}
+                            loading={loading}
+                          />
+                        </motion.div>
+                      } 
+                    />
+                    <Route 
+                      path="/chat" 
+                      element={
+                        !session ? <Navigate to="/auth" replace /> :
+                        !isLoaded ? <Navigate to="/upload" replace /> :
+                        <motion.div
+                          key="chat"
+                          className="chat-anim-wrapper"
+                          style={{ width: '100%' }}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4 }}
+                        >
+                          <ChatInterface 
+                            messages={messages}
+                            onSendMessage={handleSendMessage}
+                            loading={loading}
+                            uploadedFiles={uploadedFiles}
+                            onReset={handleReset}
+                          />
+                        </motion.div>
+                      }
+                    />
+                    <Route path="*" element={<Navigate to="/upload" replace />} />
+                  </Routes>
+                </AnimatePresence>
+
+                {error && (
+                  <div className="error-message">
+                    <span>⚠️ {error}</span>
+                    <button onClick={() => setError(null)}>✕</button>
+                  </div>
+                )}
+              </main>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+export default App;

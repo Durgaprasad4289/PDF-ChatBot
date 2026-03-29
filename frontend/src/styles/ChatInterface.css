@@ -1,0 +1,319 @@
+/* ================= ROOT ================= */
+.chat-container {
+  height: 720px;
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: 30px;
+  overflow: hidden;
+  position: relative;
+
+  background: linear-gradient(145deg, #020617, #020617);
+  border: 1px solid rgba(255,255,255,0.06);
+
+  box-shadow:
+    0 60px 140px -30px rgba(0,0,0,0.95),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* 🌌 Animated Background */
+.chat-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(59,130,246,0.15), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(139,92,246,0.2), transparent 40%);
+  animation: bgMove 12s ease-in-out infinite alternate;
+  z-index: 0;
+}
+
+@keyframes bgMove {
+  0% { transform: scale(1) translate(0,0); }
+  100% { transform: scale(1.2) translate(-5%, -5%); }
+}
+
+/* ================= HEADER ================= */
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.6rem 2rem;
+  backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.chat-title-group{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chat-header h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.header-icon {
+  color: #fff;
+
+  padding: 10px;
+  border-radius: 50%;
+
+  background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bot-icon {
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 50%;
+
+  background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+
+  color: white;
+
+  box-shadow:
+    0 0 15px rgba(139,92,246,0.6),
+    0 0 30px rgba(56,189,248,0.4);
+}
+
+
+
+.status-indicator {
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+.reset-doc-btn{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.6rem 1.2rem;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+  border: 1px solid rgba(255,255,255,0.1);
+  cursor: pointer;
+  transition: 0.3s;
+  color: white;
+  font-weight: bold;
+}
+
+.reset-doc-btn:hover{
+  background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+  border-color: rgba(255,255,255,0.2);
+}
+/* ================= MESSAGES ================= */
+.messages-area {
+  flex: 1;
+  padding: 2.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+  overflow-y: auto;
+  z-index: 2;
+}
+
+/* ================= MESSAGE ================= */
+.message-wrapper {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.message-wrapper.user {
+  justify-content: flex-end;
+}
+
+/* Avatar glow */
+.message-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.message-wrapper.user .message-avatar {
+  background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+  box-shadow: 0 0 25px rgba(139,92,246,0.7);
+}
+
+/* ================= BUBBLE ================= */
+.message-content-box {
+  max-width: 68%;
+}
+
+/* 🤖 AI bubble (glass + depth) */
+.message-bubble {
+  padding: 1.1rem 1.4rem;
+  border-radius: 20px;
+
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+
+  backdrop-filter: blur(12px);
+  position: relative;
+}
+
+/* Glow edge */
+.message-bubble::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  padding: 1px;
+
+  background: linear-gradient(
+    120deg,
+    rgba(56,189,248,0.3),
+    rgba(139,92,246,0.3),
+    transparent
+  );
+
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  opacity: 0.4;
+}
+
+/* 👤 USER bubble (premium gradient) */
+.message-wrapper.user .message-bubble {
+  background: linear-gradient(
+    135deg,
+    rgba(56,189,248,0.25),
+    rgba(139,92,246,0.35)
+  );
+  border: none;
+  box-shadow: 0 10px 35px rgba(139,92,246,0.35);
+}
+
+/* ================= INPUT ================= */
+.chat-input-area {
+  padding: 1.6rem;
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* 🔥 Floating AI Input */
+.input-pill {
+  width: 100%;
+  max-width: 750px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 0.7rem 0.7rem 0.7rem 1.6rem;
+  border-radius: 999px;
+
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+
+  backdrop-filter: blur(20px);
+
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+
+  transition: 0.3s;
+}
+
+/* Glow on focus */
+.input-pill:focus-within {
+  border-color: rgba(139,92,246,0.6);
+  box-shadow:
+    0 0 25px rgba(139,92,246,0.4),
+    0 10px 40px rgba(0,0,0,0.5);
+}
+
+/* Input */
+.input-pill input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1rem;
+}
+
+.input-pill input:focus {
+  outline: none;
+}
+
+/* 🚀 SEND BUTTON */
+.send-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+}
+
+.send-btn.active {
+  background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+  color: white;
+
+  box-shadow:
+    0 0 20px rgba(139,92,246,0.8),
+    0 0 40px rgba(56,189,248,0.4);
+}
+
+.send-btn.active:hover {
+  transform: scale(1.1);
+}
+
+/* ================= MOBILE RESPONSIVENESS ================= */
+@media (max-width: 768px) {
+  .chat-container {
+    height: calc(100vh - 120px);
+    border-radius: 16px;
+    margin: 0 10px;
+  }
+  .chat-header {
+    padding: 1rem 1.2rem;
+  }
+  .chat-header h3 {
+    font-size: 1.1rem;
+  }
+  .bot-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .reset-doc-btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  .messages-area {
+    padding: 1rem;
+    gap: 1.2rem;
+  }
+  .message-content-box {
+    max-width: 85%;
+  }
+  .message-bubble {
+    padding: 0.8rem 1rem;
+    font-size: 0.95rem;
+  }
+  .chat-input-area {
+    padding: 1rem;
+  }
+  .input-pill {
+    padding: 0.4rem 0.4rem 0.4rem 1rem;
+  }
+}
