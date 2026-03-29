@@ -14,8 +14,6 @@ import json
 from typing import List
 import io
 
-load_dotenv()
-
 app = FastAPI()
 
 # CORS middleware for React frontend
@@ -26,6 +24,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Root route for health checks
+@app.get("/")
+async def root():
+    return {"message": "PDF Chatbot API is running"}
 
 # Groq Client
 client = OpenAI(
