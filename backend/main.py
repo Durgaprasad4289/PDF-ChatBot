@@ -8,62 +8,67 @@ from openai import OpenAI
 import pypdf
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
-import asyncio
 import json
 from typing import List
 import io
 import gc
+import requests
 
 load_dotenv()
 
 app = FastAPI()
 
-# CORS
+# ===== CORS =====
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Groq Client
-client = OpenAI(
+# ===== GROQ CLIENT =====
+groq_client = OpenAI(
     api_key=os.getenv("GROQ_API_KEY"),
     base_url="https://api.groq.com/openai/v1"
 )
 
+HF_TOKEN = os.getenv("HF_TOKEN")
+
 MODEL = "llama-3.3-70b-versatile"
 MAX_FILE_SIZE = 5 * 1024 * 1024
-MAX_CHUNKS = 80
+MAX_CHUNKS = 30
 
-# Global state
-embedding_model = None
+# ===== GLOBAL STATE =====
 faiss_index = None
 chunks = None
 chat_history = []
 
-# MODELS
+# ===== REQUEST MODEL =====
 class ChatRequest(BaseModel):
     question: str
 
-class ChatResponse(BaseModel):
-    answer: str
 
-# Load embedding model
-@app.on_event("startup")
-async def load_model():
-    global embedding_model
-    embedding_model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
-    print("✅ Embedding model loaded")
+# ===== EMBEDDINGS (HF API) =====
+def get_embedding(texts):
+    url = "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction"
 
-# Extract text from PDF
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}"
+    }
+
+    response = requests.post(url, headers=headers, json={"inputs": texts})
+
+    if response.status_code != 200:
+        print(response.text)
+        raise HTTPException(status_code=500, detail="HF embedding failed")
+
+    data = response.json()
+
+    return np.array(data, dtype=np.float32)
+
+
+# ===== PDF TEXT =====
 def extract_text_from_pdf(file_bytes):
     reader = pypdf.PdfReader(io.BytesIO(file_bytes))
     text = ""
@@ -71,7 +76,8 @@ def extract_text_from_pdf(file_bytes):
         text += page.extract_text() or ""
     return text
 
-# CHUNK
+
+# ===== CHUNKING =====
 def chunk_text(text, chunk_size=300, overlap=50):
     out = []
     for i in range(0, len(text), chunk_size - overlap):
@@ -80,24 +86,24 @@ def chunk_text(text, chunk_size=300, overlap=50):
             out.append(chunk)
     return out
 
-# Build FAISS index
+
+# ===== FAISS =====
 def build_faiss_index(text_chunks):
-    embeddings = embedding_model.encode(text_chunks)
-    if len(embeddings.shape) == 1:
-        embeddings = np.expand_dims(embeddings, axis=0)
-    
+    embeddings = get_embedding(text_chunks)
+
     dim = embeddings.shape[1]
     index = faiss.IndexFlatL2(dim)
     index.add(embeddings)
     return index
 
-# Retrieve relevant chunks
+
 def retrieve_chunks(question, text_chunks, index, top_k=3):
-    q_embedding = embedding_model.encode([question])
-    distances, indices = index.search(np.array(q_embedding, dtype=np.float32), top_k)
+    q_embedding = get_embedding([question])
+    distances, indices = index.search(q_embedding, top_k)
     return [text_chunks[i] for i in indices[0] if i < len(text_chunks)]
 
-# UPLOAD
+
+# ===== UPLOAD =====
 @app.post("/upload")
 async def upload(files: List[UploadFile] = File(...)):
     global faiss_index, chunks, chat_history
@@ -114,6 +120,7 @@ async def upload(files: List[UploadFile] = File(...)):
         file_chunks = chunk_text(text)
 
         all_chunks.extend(file_chunks)
+
         if len(all_chunks) >= MAX_CHUNKS:
             break
 
@@ -129,7 +136,8 @@ async def upload(files: List[UploadFile] = File(...)):
 
     return {"status": "ok", "chunks": len(chunks)}
 
-# CHAT
+
+# ===== CHAT =====
 @app.post("/chat")
 async def chat(req: ChatRequest):
     global faiss_index, chunks, chat_history
@@ -138,7 +146,7 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=400, detail="Upload first")
 
     relevant = retrieve_chunks(req.question, chunks, faiss_index)
-    context = "\n\n".join(relevant[:2])  # 🔥 limit
+    context = "\n\n".join(relevant[:2])
 
     messages = [{"role": "system", "content": "Answer from context only"}]
     messages += chat_history[-6:]
@@ -148,24 +156,21 @@ async def chat(req: ChatRequest):
         "content": f"Context:\n{context}\n\nQ: {req.question}"
     })
 
-    answer = ""
-
-    response = client.chat.completions.create(
+    response = groq_client.chat.completions.create(
         model=MODEL,
         messages=messages,
-        stream=True,
-        max_tokens=500
+        max_tokens=400
     )
 
-    for chunk in response:
-        if chunk.choices[0].delta.content:
-            answer += chunk.choices[0].delta.content
+    answer = response.choices[0].message.content
 
     chat_history.append({"role": "user", "content": req.question})
     chat_history.append({"role": "assistant", "content": answer})
 
     return {"answer": answer}
 
+
+# ===== CHAT STREAM =====
 @app.get("/chat/stream")
 async def chat_stream(question: str):
     global faiss_index, chunks, chat_history
@@ -173,40 +178,38 @@ async def chat_stream(question: str):
     if faiss_index is None:
         raise HTTPException(status_code=400, detail="Upload first")
 
-    relevant = retrieve_chunks(question, chunks, faiss_index)
-    context = "\n\n".join(relevant[:2])
+    def generate_response(question_str: str):
+        relevant = retrieve_chunks(question_str, chunks, faiss_index)
+        context = "\n\n".join(relevant[:2])
 
-    async def stream_response():
         messages = [{"role": "system", "content": "Answer from context only"}]
         messages += chat_history[-6:]
         messages.append({
             "role": "user",
-            "content": f"Context:\n{context}\n\nQ: {question}"
+            "content": f"Context:\n{context}\n\nQ: {question_str}"
         })
 
-        try:
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                stream=True,
-                max_tokens=600
-            )
+        response = groq_client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            max_tokens=400,
+            stream=True
+        )
 
-            full_answer = ""
-            for chunk in response:
-                if chunk.choices[0].delta.content:
-                    token = chunk.choices[0].delta.content
-                    full_answer += token
-                    yield f"data: {json.dumps({'token': token})}\n\n"
+        full_answer = ""
+        for chunk in response:
+            if chunk.choices[0].delta.content:
+                token = chunk.choices[0].delta.content
+                full_answer += token
+                yield f"data: {json.dumps({'token': token})}\n\n"
 
-            chat_history.append({"role": "user", "content": question})
-            chat_history.append({"role": "assistant", "content": full_answer})
-            yield f"data: {json.dumps({'done': True})}\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        chat_history.append({"role": "user", "content": question_str})
+        chat_history.append({"role": "assistant", "content": full_answer})
 
-    return StreamingResponse(stream_response(), media_type="text/event-stream")
+    return StreamingResponse(generate_response(question), media_type="text/event-stream")
 
+
+# ===== STATUS =====
 @app.get("/status")
 async def status():
     return {
@@ -215,6 +218,8 @@ async def status():
         "history": len(chat_history)
     }
 
+
+# ===== RESET =====
 @app.post("/reset")
 async def reset():
     global faiss_index, chunks, chat_history
@@ -223,3 +228,11 @@ async def reset():
     chat_history = []
     gc.collect()
     return {"status": "reset"}
+# ===== RUN =====
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8000))
+    )
