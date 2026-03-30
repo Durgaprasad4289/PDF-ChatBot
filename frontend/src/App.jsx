@@ -88,34 +88,64 @@ function App() {
   const handleSendMessage = async (question) => {
     if (!question.trim() || !isLoaded) return;
 
-    // Add user message to chat
+    // Add user message and a placeholder for assistant
     const userMessage = { role: 'user', content: question };
     setMessages(prev => [...prev, userMessage]);
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ question }),
-      });
-
+      const response = await fetch(`${API_URL}/chat/stream?question=${encodeURIComponent(question)}`);
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Chat request failed');
+        throw new Error('Failed to start stream');
       }
 
-      const data = await response.json();
-      const assistantMessage = { role: 'assistant', content: data.answer };
-      setMessages(prev => [...prev, assistantMessage]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = "";
+      
+      // Create a new empty assistant message that we will update
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+      setLoading(false); // Stop "Thinking" when we start "Typing"
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.substring(6));
+            if (data.token) {
+              assistantContent += data.token;
+              // Update the LAST message (the assistant's content)
+              setMessages(prev => {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1].content = assistantContent;
+                return newMessages;
+              });
+            }
+          }
+        }
+      }
     } catch (err) {
       setError(err.message || 'Failed to get response');
-      // Remove the user message if request failed
-      setMessages(prev => prev.slice(0, -1));
-    } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setSession(null);
+      setUploadedFiles([]);
+      setMessages([]);
+      setIsLoaded(false);
+      navigate('/');
+    } catch (err) {
+      setError('Failed to sign out');
     }
   };
 
@@ -164,7 +194,7 @@ function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <LandingPage session={session} />
+              <LandingPage session={session} onLogout={handleLogout} />
             </motion.div>
           ) : location.pathname === '/auth' ? (
             <motion.div 

@@ -95,6 +95,7 @@ const ChatInterface = ({ messages, onSendMessage, loading, uploadedFiles, onRese
             >
               <div className="message-avatar"><Bot size={28} /></div>
               <div className="message-content-box">
+                <div className="thinking-label">Assistant is thinking...</div>
                 <div className="message-bubble typing-indicator">
                   <span></span><span></span><span></span>
                 </div>

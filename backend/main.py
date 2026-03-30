@@ -8,27 +8,30 @@ from openai import OpenAI
 import pypdf
 import numpy as np
 import faiss
-import requests
+from sentence_transformers import SentenceTransformer
 import asyncio
 import json
 from typing import List
 import io
+import gc
+
+load_dotenv()
 
 app = FastAPI()
 
-# CORS middleware for React frontend
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Root route for health checks
-@app.get("/")
-async def root():
-    return {"message": "PDF Chatbot API is running"}
 
 # Groq Client
 client = OpenAI(
@@ -37,234 +40,179 @@ client = OpenAI(
 )
 
 MODEL = "llama-3.3-70b-versatile"
+MAX_FILE_SIZE = 5 * 1024 * 1024
+MAX_CHUNKS = 80
 
 # Global state
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5"
-HF_TOKEN = os.getenv("HF_TOKEN")
+embedding_model = None
 faiss_index = None
 chunks = None
 chat_history = []
 
-# Pydantic models
+# MODELS
 class ChatRequest(BaseModel):
     question: str
 
 class ChatResponse(BaseModel):
     answer: str
 
-def get_hf_embeddings(texts: List[str]):
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-    payload = {"inputs": texts, "options": {"wait_for_model": True}}
-    response = requests.post(HF_API_URL, headers=headers, json=payload)
-    if response.status_code != 200:
-        raise HTTPException(status_code=500, detail=f"HF API Error: {response.text}")
-    
-    # HF returns a list of embeddings
-    return np.array(response.json())
-
-# Load verification
+# Load embedding model
 @app.on_event("startup")
-async def verify_hf_token():
-    if not HF_TOKEN:
-        print("⚠️ HF_TOKEN not found in environment")
-    else:
-        print("✅ HF Token detected")
+async def load_model():
+    global embedding_model
+    embedding_model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+    print("✅ Embedding model loaded")
 
 # Extract text from PDF
 def extract_text_from_pdf(file_bytes):
-    pdf_file = io.BytesIO(file_bytes)
-    reader = pypdf.PdfReader(pdf_file)
+    reader = pypdf.PdfReader(io.BytesIO(file_bytes))
     text = ""
     for page in reader.pages:
         text += page.extract_text() or ""
     return text
 
-# Chunk text
-def chunk_text(text, chunk_size=600, overlap=100):
-    chunks = []
+# CHUNK
+def chunk_text(text, chunk_size=300, overlap=50):
+    out = []
     for i in range(0, len(text), chunk_size - overlap):
         chunk = text[i:i + chunk_size]
         if chunk.strip():
-            chunks.append(chunk)
-    return chunks
+            out.append(chunk)
+    return out
 
 # Build FAISS index
 def build_faiss_index(text_chunks):
-    embeddings = get_hf_embeddings(text_chunks)
+    embeddings = embedding_model.encode(text_chunks)
     if len(embeddings.shape) == 1:
         embeddings = np.expand_dims(embeddings, axis=0)
     
     dim = embeddings.shape[1]
     index = faiss.IndexFlatL2(dim)
-    index.add(np.array(embeddings, dtype=np.float32))
+    index.add(embeddings)
     return index
 
 # Retrieve relevant chunks
 def retrieve_chunks(question, text_chunks, index, top_k=3):
-    q_embedding = get_hf_embeddings([question])
+    q_embedding = embedding_model.encode([question])
     distances, indices = index.search(np.array(q_embedding, dtype=np.float32), top_k)
     return [text_chunks[i] for i in indices[0] if i < len(text_chunks)]
 
+# UPLOAD
 @app.post("/upload")
-async def upload_pdfs(files: List[UploadFile] = File(...)):
+async def upload(files: List[UploadFile] = File(...)):
     global faiss_index, chunks, chat_history
-    
-    if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded")
-    
-    all_text = ""
-    
-    try:
-        for file in files:
-            if file.content_type != "application/pdf":
-                raise HTTPException(status_code=400, detail=f"File {file.filename} is not a PDF")
-            
-            file_bytes = await file.read()
-            text = extract_text_from_pdf(file_bytes)
-            all_text += text + "\n\n"
-        
-        if not all_text.strip():
-            raise HTTPException(status_code=400, detail="No text found in PDFs")
-        
-        chunks = chunk_text(all_text)
-        
-        if not chunks:
-            raise HTTPException(status_code=400, detail="Chunking failed")
-        
-        faiss_index = build_faiss_index(chunks)
-        chat_history = []  # Reset chat history
-        
-        return {
-            "status": "success",
-            "message": f"Indexed {len(chunks)} chunks from {len(files)} PDF(s)"
-        }
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
+    all_chunks = []
+
+    for file in files:
+        file_bytes = await file.read()
+
+        if len(file_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="File too large")
+
+        text = extract_text_from_pdf(file_bytes)
+        file_chunks = chunk_text(text)
+
+        all_chunks.extend(file_chunks)
+        if len(all_chunks) >= MAX_CHUNKS:
+            break
+
+    chunks = all_chunks[:MAX_CHUNKS]
+
+    if not chunks:
+        raise HTTPException(status_code=400, detail="No content")
+
+    faiss_index = build_faiss_index(chunks)
+
+    chat_history = []
+    gc.collect()
+
+    return {"status": "ok", "chunks": len(chunks)}
+
+# CHAT
 @app.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(req: ChatRequest):
     global faiss_index, chunks, chat_history
-    
-    if faiss_index is None or chunks is None:
-        raise HTTPException(status_code=400, detail="No PDFs uploaded. Please upload PDFs first.")
-    
-    question = request.question
-    
-    # Retrieve relevant chunks
-    relevant_chunks = retrieve_chunks(question, chunks, faiss_index)
-    
-    if not relevant_chunks:
-        context = ""
-        answer = "I couldn't find relevant information in the uploaded PDFs."
-    else:
-        context = "\n\n".join(relevant_chunks)
-        
-        # Build messages with memory (last 6 exchanges = 3 Q&A pairs)
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Answer ONLY using the provided context.\n"
-                    "If the information is not in the context, say 'Not found in the provided documents'.\n"
-                    "Be helpful and concise."
-                )
-            }
-        ]
-        
-        # Add chat history (last 3 exchanges)
-        messages += chat_history[-6:]
-        
-        # Add current question with context
-        messages.append({
-            "role": "user",
-            "content": f"Context from documents:\n{context}\n\nQuestion: {question}"
-        })
-        
-        # Get streaming response
-        answer = ""
-        try:
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                temperature=0.2,
-                max_tokens=1000,
-                stream=True
-            )
-            
-            for chunk in response:
-                if chunk.choices[0].delta.content:
-                    answer += chunk.choices[0].delta.content
-        
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    # Update chat history
-    chat_history.append({"role": "user", "content": question})
+
+    if faiss_index is None:
+        raise HTTPException(status_code=400, detail="Upload first")
+
+    relevant = retrieve_chunks(req.question, chunks, faiss_index)
+    context = "\n\n".join(relevant[:2])  # 🔥 limit
+
+    messages = [{"role": "system", "content": "Answer from context only"}]
+    messages += chat_history[-6:]
+
+    messages.append({
+        "role": "user",
+        "content": f"Context:\n{context}\n\nQ: {req.question}"
+    })
+
+    answer = ""
+
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=messages,
+        stream=True,
+        max_tokens=500
+    )
+
+    for chunk in response:
+        if chunk.choices[0].delta.content:
+            answer += chunk.choices[0].delta.content
+
+    chat_history.append({"role": "user", "content": req.question})
     chat_history.append({"role": "assistant", "content": answer})
-    
-    return ChatResponse(answer=answer)
+
+    return {"answer": answer}
 
 @app.get("/chat/stream")
 async def chat_stream(question: str):
     global faiss_index, chunks, chat_history
-    
-    if faiss_index is None or chunks is None:
-        raise HTTPException(status_code=400, detail="No PDFs uploaded")
-    
-    relevant_chunks = retrieve_chunks(question, chunks, faiss_index)
-    
+
+    if faiss_index is None:
+        raise HTTPException(status_code=400, detail="Upload first")
+
+    relevant = retrieve_chunks(question, chunks, faiss_index)
+    context = "\n\n".join(relevant[:2])
+
     async def stream_response():
-        context = "\n\n".join(relevant_chunks) if relevant_chunks else ""
-        
-        messages = [
-            {
-                "role": "system",
-                "content": "Answer ONLY using the provided context. If not found, say 'Not found in documents'."
-            }
-        ]
-        
+        messages = [{"role": "system", "content": "Answer from context only"}]
         messages += chat_history[-6:]
         messages.append({
             "role": "user",
-            "content": f"Context:\n{context}\n\nQuestion: {question}"
+            "content": f"Context:\n{context}\n\nQ: {question}"
         })
-        
+
         try:
             response = client.chat.completions.create(
                 model=MODEL,
                 messages=messages,
-                temperature=0.2,
-                stream=True
+                stream=True,
+                max_tokens=600
             )
-            
+
             full_answer = ""
             for chunk in response:
                 if chunk.choices[0].delta.content:
                     token = chunk.choices[0].delta.content
                     full_answer += token
                     yield f"data: {json.dumps({'token': token})}\n\n"
-            
-            # Update history
+
             chat_history.append({"role": "user", "content": question})
             chat_history.append({"role": "assistant", "content": full_answer})
-            
             yield f"data: {json.dumps({'done': True})}\n\n"
-        
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
-    
-    return StreamingResponse(
-        stream_response(),
-        media_type="text/event-stream"
-    )
+
+    return StreamingResponse(stream_response(), media_type="text/event-stream")
 
 @app.get("/status")
 async def status():
     return {
         "loaded": faiss_index is not None,
         "chunks": len(chunks) if chunks else 0,
-        "messages": len(chat_history)
+        "history": len(chat_history)
     }
 
 @app.post("/reset")
@@ -273,8 +221,5 @@ async def reset():
     faiss_index = None
     chunks = None
     chat_history = []
+    gc.collect()
     return {"status": "reset"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
