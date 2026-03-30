@@ -21,7 +21,31 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // 🔥 CHAT HISTORY STATE
+  const [sessions, setSessions] = useState(() => {
+    const saved = localStorage.getItem('pdf_chat_sessions');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  // Persistence for sessions
+  useEffect(() => {
+    localStorage.setItem('pdf_chat_sessions', JSON.stringify(sessions));
+  }, [sessions]);
+
+  // Auto-save current session to history
+  useEffect(() => {
+    if (currentSessionId) {
+      setSessions(prev => prev.map(s => 
+        s.id === currentSessionId 
+          ? { ...s, messages, pdfName: uploadedFiles[0]?.name || s.pdfName } 
+          : s
+      ));
+    }
+  }, [messages, uploadedFiles, currentSessionId]);
 
   // Check backend status and session on mount
   useEffect(() => {
@@ -74,6 +98,19 @@ function App() {
       const data = await response.json();
       setUploadedFiles(files);
       setIsLoaded(true);
+      
+      // Create a NEW session in history with all PDF names
+      const pdfNames = files.map(f => f.name).join(', ');
+      const newSession = {
+        id: Date.now().toString(),
+        pdfNames: pdfNames, // Correctly store all names
+        pdfName: pdfNames, // legacy field name for compatibility
+        messages: [],
+        timestamp: new Date().toISOString()
+      };
+      setSessions(prev => [...prev, newSession]);
+      setCurrentSessionId(newSession.id);
+      
       navigate('/chat');
       setMessages([]);
       setError(null);
@@ -159,8 +196,35 @@ function App() {
       setUploadedFiles([]);
       setMessages([]);
       setError(null);
+      setCurrentSessionId(null);
     } catch (err) {
       setError('Failed to reset');
+    }
+  };
+
+  const handleLoadSession = (id) => {
+    const target = sessions.find(s => s.id === id);
+    if (target) {
+      setMessages(target.messages || []);
+      setUploadedFiles([{ name: target.pdfName }]); // Dummy file for reference
+      setIsLoaded(true);
+      setCurrentSessionId(id);
+      navigate('/chat');
+    }
+  };
+
+  const handleDeleteSession = (id) => {
+    const updatedSessions = sessions.filter(s => s.id !== id);
+    setSessions(updatedSessions);
+    
+    if (currentSessionId === id) {
+      if (updatedSessions.length > 0) {
+        // If there's another session, switch to the most recent one
+        handleLoadSession(updatedSessions[updatedSessions.length - 1].id);
+      } else {
+        // No sessions left, reset and go to upload
+        handleReset();
+      }
     }
   };
 
@@ -214,13 +278,15 @@ function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <header className="app-header">
-                <h1>
-                  <span style={{ marginRight: '10px' }}>📄</span>
-                  <span className="app-header-gradient">PDF Chatbot</span>
-                </h1>
-                <p>Upload PDFs and ask questions powered by AI</p>
-              </header>
+              {location.pathname !== '/chat' && (
+                <header className="app-header">
+                  <h1>
+                    <span style={{ marginRight: '10px' }}>📄</span>
+                    <span className="app-header-gradient">PDF Chatbot</span>
+                  </h1>
+                  <p>Upload PDFs and ask questions powered by AI</p>
+                </header>
+              )}
 
               <main className="app-main">
                 <AnimatePresence mode="wait">
@@ -251,7 +317,7 @@ function App() {
                         <motion.div
                           key="chat"
                           className="chat-anim-wrapper"
-                          style={{ width: '100%' }}
+                          style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.4 }}
@@ -262,6 +328,11 @@ function App() {
                             loading={loading}
                             uploadedFiles={uploadedFiles}
                             onReset={handleReset}
+                            sessions={sessions}
+                            currentSessionId={currentSessionId}
+                            onSelectSession={handleLoadSession}
+                            onDeleteSession={handleDeleteSession}
+                            onNewChat={handleReset}
                           />
                         </motion.div>
                       }

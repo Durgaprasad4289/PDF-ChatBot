@@ -137,6 +137,24 @@ const LandingPage = ({ session, onLogout }) => {
               animate="visible"
             >
 
+              {/* 3D Spline Robot */}
+              <motion.div 
+                className="spline-container"
+                variants={itemVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                
+                <iframe src='https://my.spline.design/cursorfollowingrobotforlandingpage-iAEUprjlwf5PdoFHdCeAfUfS/' 
+                frameborder='0' 
+                width='100%'
+                height='100%'
+                title="3D Robot"
+                ></iframe>
+                {/* Mask to hide Spline watermark */}
+                <div className="spline-watermark-mask" />
+              </motion.div>
+
               <motion.h1 className="hero-title" variants={itemVariants}>
                 Upload your PDF<br />
                 <span className="text-gradient">and Summarize it</span>
