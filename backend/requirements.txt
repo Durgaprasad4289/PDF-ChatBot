@@ -7,3 +7,5 @@ numpy
 faiss-cpu
 requests
 python-multipart
+sentence-transformers
+torch
