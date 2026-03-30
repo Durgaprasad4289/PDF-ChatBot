@@ -76,7 +76,7 @@ const itemVariants = {
   },
 };
 
-const LandingPage = ({ session }) => {
+const LandingPage = ({ session, onLogout }) => {
   const navigate = useNavigate();
   
   return (
@@ -113,9 +113,14 @@ const LandingPage = ({ session }) => {
             </ul>
 
             {session ? (
-              <button className="signin-btn" onClick={() => navigate('/upload')}>
-                Go to App
-              </button>
+              <div className="nav-auth-group">
+                <button className="signin-btn" onClick={() => navigate('/upload')}>
+                  Go to App
+                </button>
+                <button className="logout-navbar-btn" onClick={onLogout}>
+                  Logout
+                </button>
+              </div>
             ) : (
               <button className="signin-btn" onClick={() => navigate('/auth')}>
                 Sign in

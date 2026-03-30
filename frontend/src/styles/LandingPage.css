@@ -188,12 +188,41 @@ body {
 
 .signin-btn {
   border: 1px solid rgba(255,255,255,0.2);
-  padding: 6px 16px;
+  padding: 8px 20px;
   font-size: 0.95rem;
   border-radius: 999px;
   background: transparent;
   color: white;
   cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.signin-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: white;
+}
+
+.nav-auth-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.logout-navbar-btn {
+  padding: 8px 20px;
+  font-size: 0.95rem;
+  border-radius: 999px;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: #fb7185;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-navbar-btn:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: #fb7185;
+  transform: translateY(-1px);
 }
 
 /* ================= HERO ================= */
