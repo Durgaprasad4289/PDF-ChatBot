@@ -7,6 +7,7 @@ import '../styles/LandingPage.css';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+/* ================= LOADER ================= */
 const Loader = () => (
   <div className="page-loader">
     <div className="loader-core">
@@ -18,278 +19,208 @@ const Loader = () => (
   </div>
 );
 
+/* ================= FORM ================= */
 const handleSubmitform = (e) => {
-      e.preventDefault();
-      toast.success("Form submitted successfully");
-      e.target.reset();
-}
-  
+  e.preventDefault();
+  toast.success("Form submitted successfully");
+  e.target.reset();
+};
+
+/* ================= CURSOR ================= */
 const CustomCursor = () => {
   const mouseX = useMotionValue(-100);
   const mouseY = useMotionValue(-100);
 
-  const springConfig = { damping: 25, stiffness: 150, mass: 0.5 };
-  const springX = useSpring(mouseX, springConfig);
-  const springY = useSpring(mouseY, springConfig);
+  const springX = useSpring(mouseX, { damping: 25, stiffness: 150 });
+  const springY = useSpring(mouseY, { damping: 25, stiffness: 150 });
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
+    const move = (e) => {
       mouseX.set(e.clientX);
       mouseY.set(e.clientY);
     };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [mouseX, mouseY]);
+    window.addEventListener("mousemove", move);
+    return () => window.removeEventListener("mousemove", move);
+  }, []);
 
   return (
     <>
-      <motion.div
-        className="cursor-ring"
-        style={{
-          x: springX,
-          y: springY,
-        }}
-      />
-      <motion.div
-        className="cursor-dot"
-        style={{
-          x: mouseX,
-          y: mouseY,
-        }}
-      />
+      <motion.div className="cursor-ring" style={{ x: springX, y: springY }} />
+      <motion.div className="cursor-dot" style={{ x: mouseX, y: mouseY }} />
     </>
   );
 };
 
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.2 }
-  },
-};
-
 const LandingPage = ({ session, onLogout }) => {
   const navigate = useNavigate();
-  
+
   return (
     <>
       <Loader />
-      <ToastContainer  pauseOnHover={false} autoClose={1500} theme='dark'/>
-      <motion.div
-        className="landing-page"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6, delay: 1.5 }}
-      >
-        <div className="particles-wrapper">
-          <Particles />
+      <ToastContainer autoClose={1500} theme="dark" />
+      <CustomCursor />
+
+      <div className="landing-page">
+
+        {/* NAVBAR */}
+      <nav className="landing-nav">
+        <div className="nav-left">
+          <div className="logo-icon">
+            <i className='bx bxs-file-pdf'></i>
+          </div>
+          <span className="logo-text">PDF Reader</span>
         </div>
 
-        <CustomCursor />
+        <ul className="nav-links">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#preview">Preview</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
 
-        <div className="landing-content">
-
-          {/* NAVBAR */}
-          <nav className="landing-nav">
-            <div className="nav-logo">
-              <div className="logo-icon-wrap">
-                <i className='bx bxs-file-blank'></i>
-              </div>
-              <span>PDF Reader</span>
-            </div>
-
-            <ul className="nav-links">
-              <li><a href="#home">Home</a></li>
-              <li><a href="#demo">Demo</a></li>
-              <li><a href="#contact">Contact</a></li>
-            </ul>
-
-            {session ? (
-              <div className="nav-auth-group">
-                <button className="signin-btn" onClick={() => navigate('/upload')}>
-                  Go to App
-                </button>
-                <button className="logout-navbar-btn" onClick={onLogout}>
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <button className="signin-btn" onClick={() => navigate('/auth')}>
-                Sign in
-              </button>
-            )}
-          </nav>
-    
-          {/* HERO */}
-          <main className="hero-section" id='home'>
-            <motion.div
-              className="hero-text-container"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-            >
-
-              {/* 3D Spline Robot */}
-              <motion.div 
-                className="spline-container"
-                variants={itemVariants}
-                initial="hidden"
-                animate="visible"
+        <div className="nav-actions">
+          {session ? (
+            <>
+              <button
+                className="nav-btn primary"
+                onClick={() => navigate('/upload')}
               >
-                
-                <iframe src='https://my.spline.design/cursorfollowingrobotforlandingpage-iAEUprjlwf5PdoFHdCeAfUfS/' 
-                frameborder='0' 
-                width='100%'
-                height='100%'
-                title="3D Robot"
-                ></iframe>
-                {/* Mask to hide Spline watermark */}
-                <div className="spline-watermark-mask" />
-              </motion.div>
-
-              <motion.h1 className="hero-title" variants={itemVariants}>
-                Upload your PDF<br />
-                <span className="text-gradient">and Summarize it</span>
-              </motion.h1>
-
-              <motion.p className="hero-subtitle" variants={itemVariants}>
-                Lightning-fast AI that extracts and understands your documents.
-              </motion.p>
-
-              <motion.div className="cta-cluster" variants={itemVariants}>
-                <button className="get-started-btn" onClick={() => navigate(session ? '/upload' : '/auth')}>
-                  Get Started
-                  <i className='bx bx-right-arrow-alt'></i>
-                </button>
-              </motion.div>
-
-              {/* FEATURES */}
-              <motion.div className="feat-row" variants={itemVariants}>
-                <div className="feat-card">
-                  <div className="feat-icon fi-purple">
-                    <i className='bx bx-file'></i>
-                  </div>
-                  <h3>PDF Upload</h3>
-                  <p>Upload and process instantly</p>
-                </div>
-
-                <div className="feat-card">
-                  <div className="feat-icon fi-blue">
-                    <i className='bx bx-bolt-circle'></i>
-                  </div>
-                  <h3>Real-time AI</h3>
-                  <p>Get answers instantly</p>
-                </div>
-
-                <div className="feat-card">
-                  <div className="feat-icon fi-cyan">
-                    <i className='bx bx-bar-chart-alt-2'></i>
-                  </div>
-                  <h3>Smart Summary</h3>
-                  <p>Key insights auto generated</p>
-                </div>
-              </motion.div>
-
-            </motion.div>
-          </main>
-
-          {/* DEMO VIDEO SECTION */}
-          <motion.div 
-            className="demo-section"
-            id='demo'
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="demo-header">
-              <h2>See it in Action</h2>
-              <p>Watch how fast you can extract insights from any document.</p>
-            </div>
-            
-            <div className="video-wrapper">
-              <video 
-                src={sampleDemo} 
-                autoPlay 
-                loop 
-                muted 
-                playsInline 
-                className="demo-video"
-              />
-            </div>
-          </motion.div>
-
-          {/* CONTACT SECTION */}
-          <motion.div 
-            className="contact-section"
-            id='contact'
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="contact-header">
-              <h2>Get in Touch</h2>
-              <p>Have questions? We'd love to hear from you.</p>
-            </div>
-            
-            <form className="contact-form" onSubmit={handleSubmitform}>
-              <div className="form-group">
-                <input type="text" placeholder="Your Name" className="contact-input" />
-              </div>
-              <div className="form-group">
-                <input type="email" placeholder="Your Email" className="contact-input" />
-              </div>
-              <div className="form-group">
-                <textarea placeholder="Your Message" rows="5" className="contact-input textarea"></textarea>
-              </div>
-              <button type="submit" className="get-started-btn contact-btn">
-                Send Message
-                <i className='bx bx-send'></i>
+                Go to App
               </button>
-            </form>
-          </motion.div>
+          
+              <button
+                className="nav-btn danger"
+                onClick={onLogout}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <button
+              className="nav-btn primary"
+              onClick={() => navigate('/auth')}
+            >
+              Sign In
+            </button>
+          )}
+        </div>
+      </nav>
 
-          {/* FOOTER */}
-          <footer className="landing-footer">
-            <div className="footer-content">
-              <div className="footer-logo">
-                <div className="logo-icon-wrap" style={{ padding: '6px' }}>
-                  <i className='bx bxs-file-blank'></i>
-                </div>
-                <span>PDF Reader</span>
-              </div>
-              
-              <div className="footer-links">
-                <a href="#home">Home</a>
-                <a href="#demo">Demo</a>
-                <a href="#contact">Contact</a>
-                <a href="#">Privacy Policy</a>
-                <a href="#">Terms of Service</a>
-              </div>
-              
-              <div className="footer-social">
-                <a href="#"><i className='bx bxl-twitter'></i></a>
-                <a href="#"><i className='bx bxl-github'></i></a>
-                <a href="#"><i className='bx bxl-discord-alt'></i></a>
+        {/* HERO */}
+        <section className="hero-section" id='home'>
+          <div className="hero-wrapper">
+
+            {/* LEFT */}
+            <div className="hero-left">
+              <h1>
+                Upload your PDF <br />
+                <span className="gradient-text">and Summarize it</span>
+              </h1>
+
+              <p>
+                Lightning-fast AI that extracts and understands your documents.
+              </p>
+
+              <button
+                className="cta-btn"
+                onClick={() => navigate(session ? '/upload' : '/auth')}
+              >
+                Get Started →
+              </button>
+            </div>
+
+            {/* RIGHT */}
+            <div className="hero-right">
+              <div className="spline-container">
+                <iframe
+                  src="https://my.spline.design/cursorfollowingrobotforlandingpage-iAEUprjlwf5PdoFHdCeAfUfS/"
+                  title="3D"
+                />
               </div>
             </div>
-            
+
+          </div>
+        </section>
+
+        {/* DEMO */}
+        <section className="demo-section" id='preview'>
+          <h2>See it in Action</h2>
+          <video src={sampleDemo} autoPlay loop muted />
+        </section>
+
+        {/* CONTACT */}
+        <section className="contact-section" id='contact'>
+          <div className="contact-container">
+            {/* Background Orbs to match the reference image */}
+            <div className="contact-orb orb-pink"></div>
+            <div className="contact-orb orb-purple"></div>
+
+            <motion.div 
+              className="contact-card"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <h2>Contact Us</h2>
+              <p>Have questions? We'd love to hear from you.</p>
+
+              <form onSubmit={handleSubmitform}>
+                <div className="input-group">
+                  <label>Name</label>
+                  <input type="text" placeholder="Your Name" required />
+                </div>
+                <div className="input-group">
+                  <label>Email</label>
+                  <input type="email" placeholder="Your Email" required />
+                </div>
+                <div className="input-group">
+                  <label>Message</label>
+                  <textarea placeholder="How can we help?" rows="4" required></textarea>
+                </div>
+                <button type="submit" className="contact-submit-btn">Send Message</button>
+              </form>
+            </motion.div>
+          </div>
+        </section>
+
+        <footer className="footer">
+            <div className="footer-container">
+
+              {/* BRAND */}
+              <div className="footer-col">
+                <div className="footer-logo">
+                  <i className='bx bxs-file-pdf'></i>
+                  <span>PDF Reader</span>
+                </div>
+                <p>AI-powered PDF summarization tool for fast insights.</p>
+              </div>
+
+              {/* LINKS */}
+              <div className="footer-col">
+                <h4>Quick Links</h4>
+                <a href="#home">Home</a>
+                <a href="#demo">Preview</a>
+                <a href="#contact">Contact</a>
+              </div>
+
+              {/* SOCIAL */}
+              <div className="footer-col">
+                <h4>Follow Us</h4>
+                <div className="footer-social">
+                  <i className='bx bxl-github'></i>
+                  <i className='bx bxl-twitter'></i>
+                  <i className='bx bxl-linkedin'></i>
+                </div>
+              </div>
+
+            </div>
+
             <div className="footer-bottom">
-              <p>&copy; {new Date().getFullYear()} PDF Chatbot. All rights reserved.</p>
-              <p>Built with AI & React.</p>
+              © {new Date().getFullYear()} PDF Reader. All rights reserved.
             </div>
           </footer>
-        </div>
-      </motion.div>
+
+      </div>
     </>
   );
 };
