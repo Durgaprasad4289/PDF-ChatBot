@@ -7,3 +7,4 @@ numpy
 faiss-cpu
 requests
 python-multipart
+pandas

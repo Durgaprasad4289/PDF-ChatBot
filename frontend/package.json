@@ -6,6 +6,8 @@
     "@supabase/supabase-js": "^2.100.1",
     "axios": "^1.6.8",
     "framer-motion": "^11.18.2",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
     "lucide-react": "^0.368.0",
     "ogl": "^1.0.11",
     "react": "^18.2.0",

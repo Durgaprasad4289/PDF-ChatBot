@@ -16,7 +16,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [session, setSession] = useState(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isPdfLoaded, setIsPdfLoaded] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -28,8 +28,8 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [currentSessionId, setCurrentSessionId] = useState(null);
-  
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const [shouldSummarize, setShouldSummarize] = useState(false);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
   // Persistence for sessions
   useEffect(() => {
@@ -61,12 +61,20 @@ function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+  
+  // 🚀 Robust Summary Trigger: Fires when we land on /chat after an upload
+  useEffect(() => {
+    if (location.pathname === '/chat' && shouldSummarize && isPdfLoaded) {
+      setShouldSummarize(false);
+      handleSendMessage("Please provide a comprehensive, human-readable explanation of the document I just uploaded.");
+    }
+  }, [location.pathname, shouldSummarize, isPdfLoaded]);
 
   const checkStatus = async () => {
     try {
       const response = await fetch(`${API_URL}/status`);
       const data = await response.json();
-      setIsLoaded(data.loaded);
+      setIsPdfLoaded(data.loaded);
       if (data.loaded) {
         setMessages([]); // Reset messages when status is checked
       }
@@ -97,10 +105,10 @@ function App() {
 
       const data = await response.json();
       setUploadedFiles(files);
-      setIsLoaded(true);
+      setIsPdfLoaded(true);
       
       // Create a NEW session in history with all PDF names
-      const pdfNames = files.map(f => f.name).join(', ');
+      const pdfNames = files.map(f => f.name).join(', '); 
       const newSession = {
         id: Date.now().toString(),
         pdfNames: pdfNames, // Correctly store all names
@@ -109,21 +117,22 @@ function App() {
         timestamp: new Date().toISOString()
       };
       setSessions(prev => [...prev, newSession]);
-      setCurrentSessionId(newSession.id);
+      setCurrentSessionId(newSession.id); 
       
       navigate('/chat');
       setMessages([]);
       setError(null);
+      setShouldSummarize(true); // 🚀 Robust Trigger
     } catch (err) {
       setError(err.message || 'Failed to upload PDFs');
-      setIsLoaded(false);
+      setIsPdfLoaded(false);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSendMessage = async (question) => {
-    if (!question.trim() || !isLoaded) return;
+    if (!question.trim()) return;
 
     // Add user message and a placeholder for assistant
     const userMessage = { role: 'user', content: question };
@@ -191,7 +200,7 @@ function App() {
       await fetch(`${API_URL}/reset`, {
         method: 'POST',
       });
-      setIsLoaded(false);
+      setIsPdfLoaded(false);
       navigate('/upload');
       setUploadedFiles([]);
       setMessages([]);
@@ -207,7 +216,7 @@ function App() {
     if (target) {
       setMessages(target.messages || []);
       setUploadedFiles([{ name: target.pdfName }]); // Dummy file for reference
-      setIsLoaded(true);
+      setIsPdfLoaded(true);
       setCurrentSessionId(id);
       navigate('/chat');
     }
@@ -313,7 +322,6 @@ function App() {
                       path="/chat" 
                       element={
                         !session ? <Navigate to="/auth" replace /> :
-                        !isLoaded ? <Navigate to="/upload" replace /> :
                         <motion.div
                           key="chat"
                           className="chat-anim-wrapper"
@@ -327,6 +335,7 @@ function App() {
                             onSendMessage={handleSendMessage}
                             loading={loading}
                             uploadedFiles={uploadedFiles}
+                            isPdfLoaded={isPdfLoaded}
                             onReset={handleReset}
                             sessions={sessions}
                             currentSessionId={currentSessionId}

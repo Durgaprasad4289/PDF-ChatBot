@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, File, CheckCircle, XCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { UploadCloud, File, CheckCircle, XCircle, Loader2, ArrowLeft, Bot, Sparkles, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import '../styles/PDFUploader.css';
 
 const PDFUploader = ({ onFilesSelected, loading }) => {
   const [files, setFiles] = useState([]);
+  const [activeTab, setActiveTab] = useState('pdf'); // 'pdf' or 'chat'
   const navigate = useNavigate();
 
   const onDrop = (acceptedFiles) => {
@@ -55,57 +56,112 @@ const PDFUploader = ({ onFilesSelected, loading }) => {
         <ArrowLeft size={20} />
         <span>Back</span>
       </button>
-      <motion.div 
-        {...getRootProps()} 
-        variants={itemVariants}
-        className={`dropzone ${isDragActive ? 'active' : ''} ${status === 'uploading' ? 'disabled' : ''}`}
-        whileHover={status !== 'uploading' ? { scale: 1.01 } : {}}
-        whileTap={status !== 'uploading' ? { scale: 0.98 } : {}}
-      >
-        <input {...getInputProps()} />
-        
-        <motion.div 
-          className="upload-icon-container"
-          animate={{ 
-            y: isDragActive ? -10 : 0,
-            scale: isDragActive ? 1.1 : 1
-          }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+
+      {/* MODE TABS */}
+      <div className="uploader-tabs">
+        <button 
+          className={`uploader-tab ${activeTab === 'pdf' ? 'active' : ''}`}
+          onClick={() => setActiveTab('pdf')}
         >
-          {status === 'idle' && <UploadCloud size={40} className="upload-icon" />}
-          {status === 'uploading' && <Loader2 size={40} className="upload-icon spin" />}
-          {status === 'success' && <CheckCircle size={40} className="upload-icon success" />}
-          {status === 'error' && <XCircle size={40} className="upload-icon error" />}
-        </motion.div>
-        
-        <div className="upload-text">
-          {status === 'uploading' ? (
-            <>
-              <motion.h3 className="upload-title" layoutId="title">Processing Neural Embeddings</motion.h3>
-              <p className="upload-subtitle">Extracting context from your documents...</p>
-              <div className="premium-loader">
-                <motion.div 
-                  className="premium-loader-fill"
-                  initial={{ width: "0%" }}
-                  animate={{ width: "100%" }}
-                  transition={{ duration: 3, ease: "easeOut" }}
-                />
+          <File size={18} />
+          <span>PDF Analysis</span>
+        </button>
+        <button 
+          className={`uploader-tab ${activeTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveTab('chat')}
+        >
+          <Bot size={18} />
+          <span>AI Assistant</span>
+        </button>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {activeTab === 'pdf' ? (
+          <motion.div 
+            key="pdf-mode"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div 
+              {...getRootProps()} 
+              variants={itemVariants}
+              className={`dropzone ${isDragActive ? 'active' : ''} ${status === 'uploading' ? 'disabled' : ''}`}
+              whileHover={status !== 'uploading' ? { scale: 1.01 } : {}}
+              whileTap={status !== 'uploading' ? { scale: 0.98 } : {}}
+            >
+              <input {...getInputProps()} />
+              
+              <motion.div 
+                className="upload-icon-container"
+                animate={{ 
+                  y: isDragActive ? -10 : 0,
+                  scale: isDragActive ? 1.1 : 1
+                }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
+                {status === 'idle' && <UploadCloud size={40} className="upload-icon" />}
+                {status === 'uploading' && <Loader2 size={40} className="upload-icon spin" />}
+                {status === 'success' && <CheckCircle size={40} className="upload-icon success" />}
+                {status === 'error' && <XCircle size={40} className="upload-icon error" />}
+              </motion.div>
+              
+              <div className="upload-text">
+                {status === 'uploading' ? (
+                  <>
+                    <motion.h3 className="upload-title" layoutId="title">Processing Neural Embeddings</motion.h3>
+                    <p className="upload-subtitle">Extracting context from your documents...</p>
+                    <div className="premium-loader">
+                      <motion.div 
+                        className="premium-loader-fill"
+                        initial={{ width: "0%" }}
+                        animate={{ width: "100%" }}
+                        transition={{ duration: 3, ease: "easeOut" }}
+                      />
+                    </div>
+                  </>
+                ) : isDragActive ? (
+                  <>
+                    <motion.h3 className="upload-title" layoutId="title">Drop to Ignite</motion.h3>
+                    <p className="upload-subtitle">Release files to begin analysis</p>
+                  </>
+                ) : (
+                  <>
+                    <motion.h3 className="upload-title" layoutId="title">Initialize Analysis</motion.h3>
+                    <p className="upload-subtitle">Drag & drop PDFs here, or click to browse</p>
+                    <span className="upload-hint">Supported encoding: .pdf</span>
+                  </>
+                )}
               </div>
-            </>
-          ) : isDragActive ? (
-            <>
-              <motion.h3 className="upload-title" layoutId="title">Drop to Ignite</motion.h3>
-              <p className="upload-subtitle">Release files to begin analysis</p>
-            </>
-          ) : (
-            <>
-              <motion.h3 className="upload-title" layoutId="title">Initialize Analysis</motion.h3>
-              <p className="upload-subtitle">Drag & drop PDFs here, or click to browse</p>
-              <span className="upload-hint">Supported encoding: .pdf</span>
-            </>
-          )}
-        </div>
-      </motion.div>
+            </motion.div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="chat-mode"
+            className="direct-chat-prompt"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="chat-prompt-card">
+              <div className="chat-prompt-icon">
+                <Sparkles size={48} />
+              </div>
+              <h3>Pure AI Interaction</h3>
+              <p>Skip the documents and chat directly with Groq's high-speed intelligence.</p>
+              <button 
+                className="start-chat-btn"
+                onClick={() => navigate('/chat')}
+              >
+                <span>Launch AI Explorer</span>
+                <Send size={18} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {files.length > 0 && (

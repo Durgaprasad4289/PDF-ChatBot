@@ -325,6 +325,33 @@
   box-shadow: 0 5px 15px rgba(139, 92, 246, 0.2);
 }
 
+.chat-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.pdf-export-btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  font-weight: 600;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.pdf-export-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  transform: translateY(-2px);
+  border-color: #0ea5e9;
+  box-shadow: 0 5px 15px rgba(56, 189, 248, 0.2);
+}
+
 /* ================= MESSAGES AREA ================= */
 .messages-area {
   flex: 1;
@@ -549,4 +576,92 @@
 @media (max-height: 600px) {
   .chat-header { padding: 0.7rem var(--pad-x); }
   .chat-input-area { padding: 0.7rem var(--pad-x) 0.7rem; }
+}
+/* ================= PRO-LEVEL RESPONSIVE FIXES ================= */
+
+/* 1. Fluid Sidebar */
+.chat-sidebar {
+  width: clamp(240px, 22vw, 300px);
+}
+
+/* 2. Better Message Scaling */
+.message-wrapper {
+  max-width: clamp(280px, 65%, 900px);
+}
+
+/* 3. Ultra-wide Layout Centering */
+@media (min-width: 1280px) {
+  .chat-main-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    border-left: 1px solid var(--glass-border);
+    border-right: 1px solid var(--glass-border);
+  }
+}
+
+/* 4. Mobile Input Optimization */
+@media (max-width: 768px) {
+  .input-pill input {
+    font-size: 16px; /* prevents iOS zoom */
+  }
+
+  .send-btn {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+/* 5. Small Phones */
+@media (max-width: 480px) {
+  .message-wrapper {
+    max-width: 95%;
+  }
+
+  .message-bubble {
+    padding: 0.9rem 1.2rem;
+    font-size: 0.95rem;
+  }
+
+  .message-avatar {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* 6. Smooth Sidebar Animation Upgrade */
+.chat-sidebar {
+  will-change: transform;
+}
+
+/* 7. Performance Optimization */
+.chat-interface-layout::before,
+.chat-interface-layout::after {
+  will-change: transform;
+}
+
+/* 8. Better Scroll Feel */
+.messages-area {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+/* 9. Touch Devices Fix */
+@media (hover: none) {
+  .message-bubble:hover,
+  .send-btn:hover,
+  .reset-doc-btn:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* 10. Height-based Optimization */
+@media (max-height: 500px) {
+  .messages-area {
+    padding: 1rem var(--pad-x);
+  }
+
+  .chat-input-area {
+    padding: 0.5rem var(--pad-x);
+  }
 }

@@ -13,6 +13,7 @@ import gc
 import math
 import re
 from collections import Counter
+import pandas as pd
 
 load_dotenv()
 
@@ -104,18 +105,58 @@ def chunk_text(text: str, chunk_size=600, overlap=80) -> List[str]:
     return [c for c in out if len(c) > 20]
 
 
+# ── Data Processing: Pandas Tables ──────────────────────────────────────────
+
+def format_data_table(text: str) -> str:
+    """Attempts to parse text as CSV or JSON and return a markdown table."""
+    try:
+        # Try JSON
+        if text.strip().startswith(('[', '{')):
+            data = json.loads(text)
+            df = pd.DataFrame(data)
+            return df.to_markdown(index=False)
+        
+        # Try CSV (comma, tab, or semicolon)
+        # Use a small heuristic: if there are multiple lines and consistent delimiters
+        lines = text.strip().split('\n')
+        if len(lines) > 1:
+            for sep in [',', '\t', ';']:
+                if lines[0].count(sep) > 0 and all(l.count(sep) == lines[0].count(sep) for l in lines[:3] if l.strip()):
+                    from io import StringIO
+                    df = pd.read_csv(StringIO(text), sep=sep)
+                    return df.to_markdown(index=False)
+    except Exception:
+        pass
+    return ""
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def build_messages(context: str, question: str) -> List[dict]:
-    system = (
-        "You are a helpful assistant. Answer using ONLY the provided context. "
-        "If the answer isn't in the context, say so clearly. Be concise and accurate."
-    )
+    # Smart Refinement Logic
+    is_refining = any(phrase in question.lower() for phrase in ["modify it", "clean version", "human-readable form", "human-readable form"])
+    
+    if context.strip():
+        system = (
+            "You are a helpful assistant. Answer using ONLY the provided context. "
+            "If the answer isn't in the context, say so clearly. Be concise and accurate."
+        )
+        if is_refining:
+            system += " The user wants a clean, user-friendly, human-readable version. Aim for 20-30 words."
+        user_content = f"Context:\n{context}\n\nQuestion: {question}"
+    else:
+        system = (
+            "You are a helpful AI assistant. Provide accurate, concise, and helpful information. "
+            "Since no documents are uploaded, use your general knowledge to answer."
+        )
+        if is_refining:
+            system += " The user wants a clean, user-friendly, human-readable version. Aim for 20-30 words."
+        user_content = question
+
     messages = [{"role": "system", "content": system}]
     messages += chat_history[-6:]
     messages.append({
         "role": "user",
-        "content": f"Context:\n{context}\n\nQuestion: {question}"
+        "content": user_content
     })
     return messages
 
@@ -153,11 +194,21 @@ async def upload(files: List[UploadFile] = File(...)):
 @app.post("/chat")
 async def chat(req: ChatRequest):
     global chat_history
-    if not chunks:
-        raise HTTPException(400, detail="Upload a PDF first")
+    
+    context = ""
+    if chunks:
+        # Optimization: use more chunks for summarization/explanation requests
+        is_summary = any(kw in req.question.lower() for kw in ["summarize", "summary", "explain", "explanation"])
+        k = 15 if is_summary else 4
+        
+        relevant = retrieve_chunks(req.question, chunks, top_k=k)
+        context = "\n\n---\n\n".join(relevant)
+    
+    # Detect data table
+    table = format_data_table(req.question)
+    if table:
+        req.question = f"Please format this data as a table and explain it briefly:\n{table}"
 
-    relevant = retrieve_chunks(req.question, chunks)
-    context = "\n\n---\n\n".join(relevant)
     messages = build_messages(context, req.question)
 
     response = client.chat.completions.create(
@@ -172,11 +223,20 @@ async def chat(req: ChatRequest):
 
 @app.get("/chat/stream")
 async def chat_stream(question: str):
-    if not chunks:
-        raise HTTPException(400, detail="Upload a PDF first")
+    context = ""
+    if chunks:
+        # Optimization: use more chunks for summarization/explanation requests
+        is_summary = any(kw in question.lower() for kw in ["summarize", "summary", "explain", "explanation"])
+        k = 15 if is_summary else 4
+        
+        relevant = retrieve_chunks(question, chunks, top_k=k)
+        context = "\n\n---\n\n".join(relevant)
+    
+    # Detect data table
+    table = format_data_table(question)
+    if table:
+        question = f"Please format this data as a table and explain it briefly:\n{table}"
 
-    relevant = retrieve_chunks(question, chunks)
-    context = "\n\n---\n\n".join(relevant)
     messages = build_messages(context, question)
 
     async def generate():

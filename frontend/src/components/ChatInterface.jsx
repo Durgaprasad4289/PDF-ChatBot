@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, User, Loader2, ArrowLeft, Sparkles, Menu } from 'lucide-react';
+import { Send, Bot, User, Loader2, ArrowLeft, Sparkles, Menu, FileDown } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import ChatSidebar from './ChatSidebar';
@@ -7,7 +9,8 @@ import '../styles/ChatInterface.css';
 
 const ChatInterface = ({ 
   messages, onSendMessage, loading, onReset, 
-  sessions, currentSessionId, onSelectSession, onDeleteSession, onNewChat 
+  sessions, currentSessionId, onSelectSession, onDeleteSession, onNewChat,
+  isPdfLoaded
 }) => {
   const [input, setInput] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -16,7 +19,12 @@ const ChatInterface = ({
   const displayMessages =
     messages && messages.length > 0
       ? messages
-      : [{ role: 'assistant', content: 'Neural embeddings verified. I am ready to analyze your documents. Ask me anything!' }];
+      : [{ 
+          role: 'assistant', 
+          content: isPdfLoaded 
+            ? 'Neural embeddings verified. I am ready to analyze your documents. Ask me anything!' 
+            : 'AI Explorer active. I am powered by Groq and ready to help with any topic. What is on your mind?'
+        }];
 
   // ✅ SMART SCROLL (no jitter)
   const scrollToBottom = useCallback(() => {
@@ -37,6 +45,50 @@ const ChatInterface = ({
   useEffect(() => {
     scrollToBottom();
   }, [displayMessages, loading, scrollToBottom]);
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    const title = isPdfLoaded ? 'PDF Intelligence Chat Export' : 'AI Assistant Chat Export';
+    
+    doc.setFontSize(20);
+    doc.setTextColor(40, 42, 54);
+    doc.text(title, 20, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 30);
+    
+    let yPos = 45;
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.width;
+    const contentWidth = pageWidth - 2 * margin;
+
+    displayMessages.forEach((msg, index) => {
+      // Role Header
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(msg.role === 'user' ? '#8b5cf6' : '#38bdf8');
+      doc.text(msg.role === 'user' ? 'YOU' : 'AI ASSISTANT', margin, yPos);
+      yPos += 7;
+
+      // Message Content
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(30, 41, 59);
+      
+      const lines = doc.splitTextToSize(msg.content, contentWidth);
+      doc.text(lines, margin, yPos);
+      yPos += (lines.length * 6) + 15;
+
+      // Check for page break
+      if (yPos > doc.internal.pageSize.height - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+    });
+
+    doc.save(`${title.toLowerCase().replace(/ /g, '_')}_${Date.now()}.pdf`);
+  };
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -70,7 +122,7 @@ const ChatInterface = ({
                <div className="icon-glow"></div>
             </div>
             <div>
-              <h3>PDF Intelligence</h3>
+              <h3>{isPdfLoaded ? 'PDF Intelligence' : 'AI Assistant'}</h3>
               <div className="status-indicator">
                 <span className="dot online"></span>
                 {loading ? 'AI is thinking...' : 'System Ready'}
@@ -78,12 +130,19 @@ const ChatInterface = ({
             </div>
           </div>
 
-          {onReset && (
-            <button className="reset-doc-btn" onClick={onReset}>
-              <ArrowLeft size={16} />
-              <span>New Documents</span>
+          <div className="chat-header-actions">
+            <button className="pdf-export-btn" onClick={handleDownloadPDF} title="Download Chat as PDF">
+              <FileDown size={16} />
+              <span>PDF</span>
             </button>
-          )}
+            
+            {onReset && (
+              <button className="reset-doc-btn" onClick={onReset}>
+                <ArrowLeft size={16} />
+                <span>{isPdfLoaded ? 'New Documents' : 'Upload PDF'}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* MESSAGES */}
