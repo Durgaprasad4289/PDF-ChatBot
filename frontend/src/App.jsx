@@ -29,7 +29,8 @@ function App() {
   });
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [shouldSummarize, setShouldSummarize] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const API_URL = import.meta.env.VITE_API_URL || (isLocal ? '' : 'https://pdf-chatbot-jufx.onrender.com');
 
   // Persistence for sessions
   useEffect(() => {
@@ -303,7 +304,6 @@ function App() {
                     <Route 
                       path="/upload" 
                       element={
-                        !session ? <Navigate to="/auth" replace /> :
                         <motion.div
                           key="upload"
                           initial={{ opacity: 0, y: 20 }}
@@ -321,7 +321,6 @@ function App() {
                     <Route 
                       path="/chat" 
                       element={
-                        !session ? <Navigate to="/auth" replace /> :
                         <motion.div
                           key="chat"
                           className="chat-anim-wrapper"
