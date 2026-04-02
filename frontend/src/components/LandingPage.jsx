@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import Particles from './Particles';
+import LaserFlow from './LaserFlow';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
 import sampleDemo from '../assets/sample_demo.mp4';
 import { useNavigate } from 'react-router-dom';
@@ -131,9 +132,23 @@ const LandingPage = ({ session, onLogout }) => {
             {/* RIGHT */}
             <div className="hero-right">
               <div className="spline-container">
-                <iframe
-                  src="https://my.spline.design/cursorfollowingrobotforlandingpage-iAEUprjlwf5PdoFHdCeAfUfS/"
-                  title="3D"
+                <LaserFlow
+                  color="#CF9EFF"
+                  horizontalBeamOffset={0.0}
+                  verticalBeamOffset={0.0}
+                  horizontalSizing={0.5}
+                  verticalSizing={2.0}
+                  wispDensity={1}
+                  wispSpeed={15}
+                  wispIntensity={5}
+                  flowSpeed={0.35}
+                  flowStrength={0.25}
+                  fogIntensity={0.5}
+                  fogScale={0.3}
+                  fogFallSpeed={0.6}
+                  decay={1.1}
+                  falloffStart={1.2}
+                  style={{ width: '100%', height: '100%' }}
                 />
               </div>
             </div>

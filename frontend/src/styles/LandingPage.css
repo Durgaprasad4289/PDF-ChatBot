@@ -237,21 +237,22 @@ body {
   justify-content: center;
 }
 
-/* SPLINE */
+/* SPLINE / LASERFLOW */
 .spline-container {
   width: 100%;
   max-width: 600px;
   height: 500px;
   border-radius: 30px;
   overflow: hidden;
+  position: relative;
 
-  background: rgba(255,255,255,0.03);
+  background: #060010;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(207, 158, 255, 0.2);
 
   box-shadow:
     0 40px 100px rgba(0,0,0,0.6),
-    0 0 60px rgba(139,92,246,0.2);
+    0 0 60px rgba(139,92,246,0.3);
 
   transition: 0.4s;
 }
