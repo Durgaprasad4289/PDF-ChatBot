@@ -108,8 +108,30 @@ const LandingPage = ({ session, onLogout }) => {
 
         {/* HERO */}
         <section className="hero-section" id='home'>
-          <div className="hero-wrapper">
 
+          {/* FULL VIEWPORT LASERFLOW BACKGROUND */}
+          <div className="hero-laser-bg">
+            <LaserFlow
+              color="#CF9EFF"
+              horizontalBeamOffset={0.0}
+              verticalBeamOffset={0.0}
+              horizontalSizing={0.5}
+              verticalSizing={2.5}
+              wispDensity={1.2}
+              wispSpeed={15}
+              wispIntensity={6}
+              flowSpeed={0.35}
+              flowStrength={0.3}
+              fogIntensity={0.55}
+              fogScale={0.3}
+              fogFallSpeed={0.6}
+              decay={1.1}
+              falloffStart={1.2}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
+
+          <div className="hero-wrapper">
             {/* LEFT */}
             <div className="hero-left">
               <h1>
@@ -128,31 +150,6 @@ const LandingPage = ({ session, onLogout }) => {
                 Get Started →
               </button>
             </div>
-
-            {/* RIGHT */}
-            <div className="hero-right">
-              <div className="spline-container">
-                <LaserFlow
-                  color="#CF9EFF"
-                  horizontalBeamOffset={0.0}
-                  verticalBeamOffset={0.0}
-                  horizontalSizing={0.5}
-                  verticalSizing={2.0}
-                  wispDensity={1}
-                  wispSpeed={15}
-                  wispIntensity={5}
-                  flowSpeed={0.35}
-                  flowStrength={0.25}
-                  fogIntensity={0.5}
-                  fogScale={0.3}
-                  fogFallSpeed={0.6}
-                  decay={1.1}
-                  falloffStart={1.2}
-                  style={{ width: '100%', height: '100%' }}
-                />
-              </div>
-            </div>
-
           </div>
         </section>
 
