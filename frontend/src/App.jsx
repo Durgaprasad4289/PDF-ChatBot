@@ -239,7 +239,7 @@ function App() {
   };
 
   return (
-    <div className="app-global-container" style={{ position: 'relative', minHeight: '100vh', width: '100%' }}>
+    <div className="app-global-container" style={{ position: 'relative', height: '100%', width: '100%' }}>
       <ToastContainer theme="dark" position="top-right" />
       {/* 3D Global Interactive Background */}
       <div className="particles-wrapper" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
@@ -258,7 +258,7 @@ function App() {
       </div>
 
       {/* Foreground Content Layer */}
-      <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', zIndex: 10, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <AnimatePresence mode="wait">
           {location.pathname === '/' ? (
             <motion.div 
@@ -288,17 +288,16 @@ function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {location.pathname !== '/chat' && (
-                <header className="app-header">
-                  <h1>
-                    <span style={{ marginRight: '10px' }}>📄</span>
-                    <span className="app-header-gradient">PDF Chatbot</span>
-                  </h1>
-                  <p>Upload PDFs and ask questions powered by AI</p>
-                </header>
-              )}
-
               <main className="app-main">
+                {location.pathname !== '/chat' && (
+                  <header className="app-header">
+                    <h1>
+                      <span style={{ marginRight: '10px' }}>📄</span>
+                      <span className="app-header-gradient">PDF Chatbot</span>
+                    </h1>
+                    <p>Upload PDFs and ask questions powered by AI</p>
+                  </header>
+                )}
                 <AnimatePresence mode="wait">
                   <Routes location={location} key={location.pathname}>
                     <Route 
