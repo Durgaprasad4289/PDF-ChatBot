@@ -237,7 +237,7 @@ body {
   justify-content: center;
 }
 
-/* SPLINE / LASERFLOW */
+/* LASERFLOW CONTAINER */
 .spline-container {
   width: 100%;
   max-width: 600px;
@@ -245,26 +245,7 @@ body {
   border-radius: 30px;
   overflow: hidden;
   position: relative;
-
-  background: #060010;
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(207, 158, 255, 0.2);
-
-  box-shadow:
-    0 40px 100px rgba(0,0,0,0.6),
-    0 0 60px rgba(139,92,246,0.3);
-
-  transition: 0.4s;
-}
-
-.spline-container:hover {
-  transform: translateY(-8px) scale(1.02);
-}
-
-.spline-container iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
+  background: #050a14;
 }
 
 /* ================= DEMO ================= */
